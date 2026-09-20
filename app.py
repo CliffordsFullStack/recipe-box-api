@@ -145,7 +145,25 @@ def register():
     except sqlite3.IntegrityError:
         return jsonify({"error": "a user with that username already exists"}), 409
     return jsonify({"message": "user registered successfully"}), 201
-    
+
+@app.post("/login")
+def login():
+    data = request.get_json(silent=True)
+    if not data or not data.get("username") or not data.get("password"):
+        return jsonify({"error": "username and password are required"}), 400
+
+    db = get_db()
+    user_row = db.execute(
+        "SELECT * FROM users WHERE username = ?", (data["username"],)
+    ).fetchone()
+    if not user_row:
+        return jsonify({"error": "Invalid Credentials"}), 401
+    if not check_password_hash(user_row["password_hash"], data["password"]):
+        return jsonify({"error": "Invalid Credentials"}), 401
+    return jsonify({
+        "id": user_row["id"],
+        "username": user_row["username"]
+    }), 200
 
 
 if __name__ == "__main__":
