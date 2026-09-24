@@ -10,10 +10,29 @@ import sqlite3
 
 from flask import Flask, g, jsonify, request
 from werkzeug.security import generate_password_hash, check_password_hash
+import os 
+import jwt
+from datetime import datetime, timedelta
+from dotenv import load_dotenv
+
+load_dotenv()
+JWT_SECRET = os.getenv("JWT_SECRET")
 
 DATABASE = "recipes.db"
 
 app = Flask(__name__)
+
+def generate_jwt(user_id, username):
+    now = datetime.utcnow()
+    payload = {
+        "sub": str(user_id), # make a sub string to avoid issues with JSON serialization
+        "user_id": user_id,
+        "username": username,
+        "exp": now + timedelta(minutes=60),  # Token expires in 1 hour
+        "iat": now
+    }
+    token = jwt.encode(payload, JWT_SECRET, algorithm="HS256")
+    return token
 
 
 def get_db():
@@ -160,11 +179,14 @@ def login():
         return jsonify({"error": "Invalid Credentials"}), 401
     if not check_password_hash(user_row["password_hash"], data["password"]):
         return jsonify({"error": "Invalid Credentials"}), 401
+    token = generate_jwt(user_row["id"], user_row["username"])
     return jsonify({
-        "id": user_row["id"],
-        "username": user_row["username"]
-    }), 200
-
+        "token": token,
+        "user": {
+            "id": user_row["id"],
+            "username": user_row["username"]
+        }
+    })
 
 if __name__ == "__main__":
     app.run(debug=True)
